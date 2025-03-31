@@ -40,6 +40,8 @@ jobs:
     steps:
       - id: semver-tagger
         uses: manticoresoftware/semver-tagger-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
   vars:
     if: needs.update-version.outputs.version != ''
     needs: update-version
@@ -225,86 +227,13 @@ jobs:
           draft: true
           prerelease: false
 
-  deploy:
-    needs:
-      - vars
-      - build-artifact
-      - build-linux-packages
-    env:
-      target: ${{ needs.vars.outputs.target }}
-    runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        include:
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: buster
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: bionic
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: focal
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: jammy
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: bullseye
-          - artifact: artifact-deb
-            type: deb
-            arch: all
-            delimiter: "-"
-            distro: bookworm
-          - artifact: artifact-el7-rpm
-            type: rpm
-            arch: noarch
-            delimiter: "_"
-            distro: 7
-          - artifact: artifact-el8-rpm
-            type: rpm
-            arch: noarch
-            delimiter: "_"
-            distro: 8
-          - artifact: artifact-el9-rpm
-            type: rpm
-            arch: noarch
-            delimiter: "_"
-            distro: 9
-          - artifact: artifact
-            type: arc
-            arch: noarch
-            delimiter: "_"
-            distro: ""
-    steps:
-      - name: Deploy package
-        uses: manticoresoftware/publish_to_repo@main
-        with:
-          ssh_key: ${{ secrets.REPO_SSH_KEY }}
-          distr: ${{ matrix.distro }}
-          arch: ${{ matrix.arch }}
-          artifact: ${{ matrix.artifact }}
-          type: ${{ matrix.type }}
-          delimiter: ${{ matrix.delimiter }}
-          target: ${{ env.target }}
-
   update-manticoresearch-deps:
     needs:
       - vars
     runs-on: ubuntu-22.04
     steps:
       - name: Update deps
-        uses: manticoresoftware/manticoresearch/actions/update-deps@master
+        uses: sanikolaev/manticoresearch/actions/update-deps@master
         with:
           name: buddy
           version: ${{ needs.vars.outputs.version_full }}
