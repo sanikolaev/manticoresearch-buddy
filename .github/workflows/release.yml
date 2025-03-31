@@ -1,14 +1,8 @@
 name: release
 
 on:
-  workflow_run:
-    workflows: [ tests ]
-    types: [ completed ]
+  push:
     branches: [ main ]
-
-  pull_request:
-    branches: [ main ]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 env:
   APP_NAME: 'manticore-buddy'
