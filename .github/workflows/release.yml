@@ -2,7 +2,8 @@ name: release
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - 'main'
 
 env:
   APP_NAME: 'manticore-buddy'
