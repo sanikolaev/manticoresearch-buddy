@@ -19,7 +19,6 @@ use RuntimeException;
 final class Handler extends BaseHandlerWithClient {
 
 
-	
 	/**
 	 * Initialize the executor
 	 *
