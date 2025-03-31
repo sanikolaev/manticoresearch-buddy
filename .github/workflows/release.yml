@@ -26,8 +26,8 @@ jobs:
     steps:
       - id: semver-tagger
         uses: manticoresoftware/semver-tagger-action@main
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN }}
   vars:
     if: needs.update-version.outputs.version != ''
     needs: update-version
