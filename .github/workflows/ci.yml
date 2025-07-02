@@ -90,6 +90,8 @@ jobs:
     name: Build test kit Docker image
     runs-on: ubuntu-22.04
     needs: [ref_detection]
+    # Skip building test kit image for external PRs (no push permissions)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       docker_repo: ${{ steps.vars.outputs.docker_repo }}
       docker_tag: ${{ steps.vars.outputs.docker_tag }}
@@ -168,7 +170,7 @@ jobs:
           docker rm -f temp
 
       - name: Comment on PR with Docker images
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           script: |
@@ -196,9 +198,12 @@ jobs:
   clt:
     name: Run CLT tests
     needs: [test_kit, ref_detection]
+    # Run CLT tests even if test_kit was skipped (for external PRs)
+    if: always() && (needs.ref_detection.result == 'success')
     uses: manticoresoftware/manticoresearch/.github/workflows/clt_tests.yml@master
     with:
-      docker_image: ${{ needs.test_kit.outputs.docker_repo }}:${{ needs.test_kit.outputs.docker_tag }}
+      # Use buddy test kit image if available, otherwise fall back to base image
+      docker_image: ${{ (needs.test_kit.result == 'success' && format('{0}:{1}', needs.test_kit.outputs.docker_repo, needs.test_kit.outputs.docker_tag)) || needs.ref_detection.outputs.test_kit_image }}
       repository: manticoresoftware/manticoresearch
       ref: ${{ needs.ref_detection.outputs.ref }}
       continue_on_error: ${{ github.ref == 'refs/heads/main' }}
@@ -243,16 +248,26 @@ jobs:
 
   tests-passed:
     runs-on: ubuntu-latest
-    needs: [clt, codestyle, codeanalyze]
+    needs: [test_kit, clt, codestyle, codeanalyze]
     name: Tests passed
     if: always()
     steps:
       - name: Check if all tests passed
         run: |
-          if ${{ ((contains(needs.clt.result, 'completed')  && github.ref == 'refs/heads/main' ) || contains(needs.clt.result,'success')) && contains(needs.codestyle.result, 'success') && contains(needs.codeanalyze.result, 'success')}}; then
+          # test_kit is allowed to be skipped for external PRs
+          test_kit_ok=${{ needs.test_kit.result == 'success' || needs.test_kit.result == 'skipped' }}
+          clt_ok=${{ ((contains(needs.clt.result, 'completed') && github.ref == 'refs/heads/main') || contains(needs.clt.result,'success')) }}
+          codestyle_ok=${{ contains(needs.codestyle.result, 'success') }}
+          codeanalyze_ok=${{ contains(needs.codeanalyze.result, 'success') }}
+          
+          if [[ "$test_kit_ok" == "true" && "$clt_ok" == "true" && "$codestyle_ok" == "true" && "$codeanalyze_ok" == "true" ]]; then
             echo "All tests passed successfully"
             exit 0
           else
             echo "Some tests failed or were cancelled"
+            echo "test_kit: ${{ needs.test_kit.result }}"
+            echo "clt: ${{ needs.clt.result }}"
+            echo "codestyle: ${{ needs.codestyle.result }}"
+            echo "codeanalyze: ${{ needs.codeanalyze.result }}"
             exit 1
           fi
