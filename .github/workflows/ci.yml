@@ -90,9 +90,6 @@ jobs:
     name: Build test kit Docker image
     runs-on: ubuntu-22.04
     needs: [ref_detection]
-    # Only build test kit image when running on the original repository
-    # Skip for forks (no push permissions) and external PRs
-    if: github.repository == 'manticoresoftware/manticoresearch-buddy' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     outputs:
       docker_repo: ${{ steps.vars.outputs.docker_repo }}
       docker_tag: ${{ steps.vars.outputs.docker_tag }}
@@ -130,6 +127,8 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Login to GitHub Container Registry
+        # Only login when running on the original repository (has required secrets)
+        if: github.repository == 'manticoresoftware/manticoresearch-buddy'
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -153,25 +152,30 @@ jobs:
           docker exec temp sh -c 'cd /usr/share/manticore/modules/manticore-buddy/ && composer install --prefer-dist'
           docker exec temp sh -c 'git config --system --add safe.directory /usr/share/manticore/modules/manticore-buddy'
 
-          # Commit and push the buddy test-kit images
+          # Commit the buddy test-kit images (always build locally)
           docker commit temp ${{ steps.vars.outputs.image }}
           docker commit temp ${{ steps.vars.outputs.image_commit }}
 
-          # PUSHING: Always push with current branch + buddy suffix
-          # Example: test-kit-feature-xyz-buddy (branch-based)
-          # Example: test-kit-abc12345-buddy (commit-based)
-          echo "🚀 PUSHING Docker Images:"
-          echo "  Branch image: ${{ steps.vars.outputs.image }}"
-          echo "  Commit image: ${{ steps.vars.outputs.image_commit }}"
+          # PUSHING: Only push when running on the original repository
+          if [[ "${{ github.repository }}" == "manticoresoftware/manticoresearch-buddy" ]]; then
+            echo "🚀 PUSHING Docker Images:"
+            echo "  Branch image: ${{ steps.vars.outputs.image }}"
+            echo "  Commit image: ${{ steps.vars.outputs.image_commit }}"
 
-          docker push ${{ steps.vars.outputs.image }}
-          docker push ${{ steps.vars.outputs.image_commit }}
+            docker push ${{ steps.vars.outputs.image }}
+            docker push ${{ steps.vars.outputs.image_commit }}
+          else
+            echo "🏗️ BUILT Docker Images locally (not pushing from fork):"
+            echo "  Branch image: ${{ steps.vars.outputs.image }}"
+            echo "  Commit image: ${{ steps.vars.outputs.image_commit }}"
+          fi
 
           # Cleanup
           docker rm -f temp
 
       - name: Comment on PR with Docker images
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        # Only comment when images are actually pushed (internal PRs only)
+        if: github.event_name == 'pull_request' && github.repository == 'manticoresoftware/manticoresearch-buddy' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           script: |
@@ -199,12 +203,10 @@ jobs:
   clt:
     name: Run CLT tests
     needs: [test_kit, ref_detection]
-    # Run CLT tests even if test_kit was skipped (for external PRs)
-    if: always() && (needs.ref_detection.result == 'success')
     uses: manticoresoftware/manticoresearch/.github/workflows/clt_tests.yml@master
     with:
-      # Use buddy test kit image if available, otherwise fall back to base image
-      docker_image: ${{ (needs.test_kit.result == 'success' && format('{0}:{1}', needs.test_kit.outputs.docker_repo, needs.test_kit.outputs.docker_tag)) || needs.ref_detection.outputs.test_kit_image }}
+      # Always use the buddy test kit image since test_kit job always runs
+      docker_image: ${{ needs.test_kit.outputs.docker_repo }}:${{ needs.test_kit.outputs.docker_tag }}
       repository: manticoresoftware/manticoresearch
       ref: ${{ needs.ref_detection.outputs.ref }}
       continue_on_error: ${{ github.ref == 'refs/heads/main' }}
@@ -255,13 +257,7 @@ jobs:
     steps:
       - name: Check if all tests passed
         run: |
-          # test_kit is allowed to be skipped for external PRs
-          test_kit_ok=${{ needs.test_kit.result == 'success' || needs.test_kit.result == 'skipped' }}
-          clt_ok=${{ ((contains(needs.clt.result, 'completed') && github.ref == 'refs/heads/main') || contains(needs.clt.result,'success')) }}
-          codestyle_ok=${{ contains(needs.codestyle.result, 'success') }}
-          codeanalyze_ok=${{ contains(needs.codeanalyze.result, 'success') }}
-          
-          if [[ "$test_kit_ok" == "true" && "$clt_ok" == "true" && "$codestyle_ok" == "true" && "$codeanalyze_ok" == "true" ]]; then
+          if ${{ ((contains(needs.clt.result, 'completed')  && github.ref == 'refs/heads/main' ) || contains(needs.clt.result,'success')) && contains(needs.codestyle.result, 'success') && contains(needs.codeanalyze.result, 'success') && contains(needs.test_kit.result, 'success')}}; then
             echo "All tests passed successfully"
             exit 0
           else
