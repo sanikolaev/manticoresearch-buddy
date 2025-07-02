@@ -154,7 +154,7 @@ jobs:
 
           # Export container as artifact for CLT tests (before committing)
           echo "💾 EXPORTING Container as artifact for CLT tests..."
-          docker export temp -o buddy-test-kit-image.tar
+          docker export temp -o buddy-test-kit-image
 
           # Commit the buddy test-kit images (always build locally)
           docker commit temp ${{ steps.vars.outputs.image }}
@@ -181,7 +181,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: buddy-test-kit-image
-          path: buddy-test-kit-image.tar
+          path: buddy-test-kit-image
 
       - name: Comment on PR with Docker images
         # Only comment when images are actually pushed (internal PRs only)
