@@ -154,7 +154,7 @@ jobs:
 
           # Export container as artifact for CLT tests (before committing)
           echo "💾 EXPORTING Container as artifact for CLT tests..."
-          docker export temp -o artifact.tar
+          docker export temp -o buddy-test-kit.img
 
           # Commit the buddy test-kit images (always build locally)
           docker commit temp ${{ steps.vars.outputs.image }}
@@ -180,8 +180,8 @@ jobs:
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: buddy-test-kit-image
-          path: artifact.tar
+          name: buddy-test-kit.img
+          path: buddy-test-kit.img
 
       - name: Comment on PR with Docker images
         # Only comment when images are actually pushed (internal PRs only)
@@ -217,7 +217,7 @@ jobs:
     with:
       # Use the buddy test kit image from artifact (works for both forks and original repo)
       docker_image: ${{ needs.test_kit.outputs.docker_repo }}:${{ needs.test_kit.outputs.docker_tag }}
-      artifact_name: buddy-test-kit-image
+      artifact_name: buddy-test-kit.img
       repository: manticoresoftware/manticoresearch
       ref: ${{ needs.ref_detection.outputs.ref }}
       continue_on_error: ${{ github.ref == 'refs/heads/main' }}
