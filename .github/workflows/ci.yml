@@ -119,9 +119,17 @@ jobs:
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "image_commit=${IMAGE_COMMIT}" >> $GITHUB_OUTPUT
           echo "base_image=${BASE_IMAGE}" >> $GITHUB_OUTPUT
-          echo "Docker Image: ${IMAGE}" >> $GITHUB_STEP_SUMMARY
-          echo "Docker Image commit: ${IMAGE_COMMIT}" >> $GITHUB_STEP_SUMMARY
           echo "Base Image: ${BASE_IMAGE}" >> $GITHUB_STEP_SUMMARY
+          
+          # Only show Docker image info when we'll actually push them
+          if [[ "${{ github.repository }}" == "manticoresoftware/manticoresearch-buddy" ]]; then
+            echo "🚀 Docker Images (will be pushed):" >> $GITHUB_STEP_SUMMARY
+            echo "  Branch image: ${IMAGE}" >> $GITHUB_STEP_SUMMARY
+            echo "  Commit image: ${IMAGE_COMMIT}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🏗️ Docker Images (local build only):" >> $GITHUB_STEP_SUMMARY
+            echo "  Images will be built locally for testing" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
