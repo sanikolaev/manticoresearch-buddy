@@ -90,8 +90,9 @@ jobs:
     name: Build test kit Docker image
     runs-on: ubuntu-22.04
     needs: [ref_detection]
-    # Skip building test kit image for external PRs (no push permissions)
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Only build test kit image when running on the original repository
+    # Skip for forks (no push permissions) and external PRs
+    if: github.repository == 'manticoresoftware/manticoresearch-buddy' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     outputs:
       docker_repo: ${{ steps.vars.outputs.docker_repo }}
       docker_tag: ${{ steps.vars.outputs.docker_tag }}
