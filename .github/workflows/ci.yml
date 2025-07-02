@@ -178,7 +178,7 @@ jobs:
           docker rm -f temp
 
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
+        uses: manticoresoftware/upload_artifact_with_retries@v4
         with:
           name: buddy-test-kit.img
           path: buddy-test-kit.img
